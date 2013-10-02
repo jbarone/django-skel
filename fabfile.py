@@ -5,7 +5,7 @@ from fabric.contrib.console import confirm
 from fabric.api import abort, env, local, settings, task
 
 
-########## GLOBALS
+# GLOBALS
 env.run = 'heroku run python manage.py'
 HEROKU_ADDONS = (
     'cloudamqp:lemur',
@@ -17,16 +17,17 @@ HEROKU_ADDONS = (
     'sentry:developer',
 )
 HEROKU_CONFIGS = (
+    'BUILDPACK_URL=https://github.com/jbarone/heroku-buildpack-python-plus',
     'DJANGO_SETTINGS_MODULE={{ project_name }}.settings.prod',
     'SECRET_KEY={{ secret_key }}'
     'AWS_ACCESS_KEY_ID=xxx',
     'AWS_SECRET_ACCESS_KEY=xxx',
-    'AWS_STORAGE_BUCKET_NAME=xxx',
+    'AWS_STORAGE_BUCKET_NAME={{ project_name }}',
 )
-########## END GLOBALS
+# END GLOBALS
 
 
-########## HELPERS
+# HELPERS
 def cont(cmd, message):
     """Given a command, ``cmd``, and a message, ``message``, allow a user to
     either continue or break execution if errors occur while executing ``cmd``.
@@ -35,9 +36,9 @@ def cont(cmd, message):
     :param str message: The message to display to the user on failure.
 
     .. note::
-        ``message`` should be phrased in the form of a question, as if ``cmd``'s
-        execution fails, we'll ask the user to press 'y' or 'n' to continue or
-        cancel exeuction, respectively.
+        ``message`` should be phrased in the form of a question, as if 
+        ``cmd``'s execution fails, we'll ask the user to press 'y' or 'n' to 
+        continue or cancel exeuction, respectively.
 
     Usage::
 
@@ -48,10 +49,10 @@ def cont(cmd, message):
 
     if message and result.failed and not confirm(message):
         abort('Stopped execution per user request.')
-########## END HELPERS
+# END HELPERS
 
 
-########## DATABASE MANAGEMENT
+# DATABASE MANAGEMENT
 @task
 def syncdb():
     """Run a syncdb."""
@@ -69,22 +70,35 @@ def migrate(app=None):
         local('%s migrate %s --noinput' % (env.run, app))
     else:
         local('%(run)s migrate --noinput' % env)
-########## END DATABASE MANAGEMENT
+# END DATABASE MANAGEMENT
 
 
-########## FILE MANAGEMENT
+# FILE MANAGEMENT
 @task
 def collectstatic():
     """Collect all static files, and copy them to S3 for production usage."""
     local('%(run)s collectstatic --noinput' % env)
-########## END FILE MANAGEMENT
 
 
-########## HEROKU MANAGEMENT
 @task
-def bootstrap():
-    """Bootstrap your new application with Heroku, preparing it for a production
-    deployment. This will:
+def compress():
+    """Compress css and javascript files"""
+    local('%(run)s compress' % env)
+# END FILE MANAGEMENT
+
+
+# PROJECT MANAGEMENT
+@task
+def setup():
+    pass
+# END PROJECT MANAGEMENT
+
+
+# HEROKU MANAGEMENT
+@task
+def bootstrap(appname=None):
+    """Bootstrap your new application with Heroku, preparing it for a 
+    production deployment. This will:
 
         - Create a new Heroku application.
         - Install all ``HEROKU_ADDONS``.
@@ -92,24 +106,31 @@ def bootstrap():
         - Apply all database migrations.
         - Initialize New Relic's monitoring add-on.
     """
-    cont('heroku create', "Couldn't create the Heroku app, continue anyway?")
+    if appname:
+        cont('heroku apps:create %s' % appname,
+             "Couldn't create the Heroku app, continue anyway?")
+    else:
+        cont('heroku apps:create',
+             "Couldn't create the Heroku app, continue anyway?")
 
     for addon in HEROKU_ADDONS:
         cont('heroku addons:add %s' % addon,
-            "Couldn't add %s to your Heroku app, continue anyway?" % addon)
+             "Couldn't add %s to your Heroku app, continue anyway?" % addon)
 
     for config in HEROKU_CONFIGS:
         cont('heroku config:add %s' % config,
-            "Couldn't add %s to your Heroku app, continue anyway?" % config)
+             "Couldn't add %s to your Heroku app, continue anyway?" % config)
 
     cont('git push heroku master',
-            "Couldn't push your application to Heroku, continue anyway?")
+         "Couldn't push your application to Heroku, continue anyway?")
 
     syncdb()
     migrate()
+    collectstatic()
+    compress()
 
     cont('%(run)s newrelic-admin validate-config - stdout' % env,
-            "Couldn't initialize New Relic, continue anyway?")
+         "Couldn't initialize New Relic, continue anyway?")
 
 
 @task
@@ -120,4 +141,4 @@ def destroy():
         This really will completely destroy your application. Think twice.
     """
     local('heroku apps:destroy')
-########## END HEROKU MANAGEMENT
+# END HEROKU MANAGEMENT
