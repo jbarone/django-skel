@@ -42,7 +42,8 @@ def cont(cmd, message):
 
     Usage::
 
-        cont('heroku run ...', "Couldn't complete %s. Continue anyway?" % cmd)
+        cont('heroku run ...', 
+             "Couldn't complete {cmd}. Continue anyway?".format(cmd=cmd)
     """
     with settings(warn_only=True):
         result = local(cmd, capture=True)
@@ -56,7 +57,7 @@ def cont(cmd, message):
 @task
 def syncdb():
     """Run a syncdb."""
-    local('%(run)s syncdb --noinput' % env)
+    local('{run} syncdb --noinput'.format(**env))
 
 
 @task
@@ -67,9 +68,9 @@ def migrate(app=None):
     :param str app: Django app name to migrate.
     """
     if app:
-        local('%s migrate %s --noinput' % (env.run, app))
+        local('{run} migrate {app} --noinput'.format(app=app, **env))
     else:
-        local('%(run)s migrate --noinput' % env)
+        local('{run} migrate --noinput'.format(**env))
 # END DATABASE MANAGEMENT
 
 
@@ -77,26 +78,53 @@ def migrate(app=None):
 @task
 def collectstatic():
     """Collect all static files, and copy them to S3 for production usage."""
-    local('%(run)s collectstatic --noinput' % env)
+    local('{run} collectstatic --noinput'.format(**env))
 
 
 @task
 def compress():
     """Compress css and javascript files"""
-    local('%(run)s compress' % env)
+    local('{run} compress'.format(**env))
 # END FILE MANAGEMENT
 
 
 # PROJECT MANAGEMENT
 @task
-def setup():
-    pass
+def initialize():
+    """Initialize local project after startproject"""
+    local('rm -rf docs README.md')
+    local('pip install -r reqs/dev.txt')
+    local('echo /{{ project_name }}/static > .gitignore')
+    local('git init')
+    local('git add .')
+    local("git commit -m 'First commit'")
+
+@task
+def startapp(app):
+    """Start a new django app"""
+    local('mkdir {{ project_name }}/apps/{app}'.format(app=app))
+    local('python manage.py startapp {app} {{ project_name }}/apps/{app}'
+            .format(app=app))
 # END PROJECT MANAGEMENT
 
 
 # HEROKU MANAGEMENT
 @task
-def bootstrap(appname=None):
+def update():
+    """Update project deployment on Heroku"""
+    cont('git push heroku master',
+         "Couldn't push your application to Heroku, continue anyway?")
+
+    syncdb()
+    migrate()
+    collectstatic()
+    compress()
+
+    cont('{run} newrelic-admin validate-config - stdout'.format(**env)
+         "Couldn't initialize New Relic, continue anyway?")
+
+@task
+def bootstrap(app=None):
     """Bootstrap your new application with Heroku, preparing it for a 
     production deployment. This will:
 
@@ -106,20 +134,21 @@ def bootstrap(appname=None):
         - Apply all database migrations.
         - Initialize New Relic's monitoring add-on.
     """
-    if appname:
-        cont('heroku apps:create %s' % appname,
-             "Couldn't create the Heroku app, continue anyway?")
-    else:
-        cont('heroku apps:create',
-             "Couldn't create the Heroku app, continue anyway?")
+    if not app:
+        app = '{{ project_name}}'
+
+    cont('heroku apps:create {app}'.format(app=app),
+         "Couldn't create the Heroku app, continue anyway?")
 
     for addon in HEROKU_ADDONS:
-        cont('heroku addons:add %s' % addon,
-             "Couldn't add %s to your Heroku app, continue anyway?" % addon)
+        cont('heroku addons:add {addon}'.format(addon=addon),
+             "Couldn't add {addon} to your Heroku app, continue anyway?"
+             .format(addon=addon))
 
     for config in HEROKU_CONFIGS:
-        cont('heroku config:add %s' % config,
-             "Couldn't add %s to your Heroku app, continue anyway?" % config)
+        cont('heroku config:add config'.format(config=config),
+             "Couldn't add config to your Heroku app, continue anyway?"
+             .format(config=config))
 
     cont('git push heroku master',
          "Couldn't push your application to Heroku, continue anyway?")
@@ -129,16 +158,20 @@ def bootstrap(appname=None):
     collectstatic()
     compress()
 
-    cont('%(run)s newrelic-admin validate-config - stdout' % env,
+    cont('{run} newrelic-admin validate-config - stdout'.format(**env),
          "Couldn't initialize New Relic, continue anyway?")
 
 
 @task
-def destroy():
+def destroy(app=None):
     """Destroy this Heroku application. Wipe it from existance.
 
     .. note::
         This really will completely destroy your application. Think twice.
     """
-    local('heroku apps:destroy')
+    if not app:
+        app = '{{ project_name }}'
+
+    local('heroku apps:destroy --app {app}'.format(app=app))
+
 # END HEROKU MANAGEMENT

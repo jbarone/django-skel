@@ -1,18 +1,43 @@
-# Python bytecode:
+################
+# Python
+################
 *.py[co]
+*.egg
+*.egg-info
+dist
+build
+eggs
+parts
+bin
+var
+sdist
+develop-eggs
+.installed.cfg
+celerybeat-schedule
 
-# Packaging files:
-*.egg*
+################
+# Unit tests
+################
+.coverage
+.tox
 
-# Editor temp files:
+################
+# Other Stuff
+################
+.DS_Store
+Thumbs.db
+Desktop.ini
 *.swp
 *~
-
-# Sphinx docs:
-build
-
-# SQLite3 database files:
+*.sqlite
 *.db
-
-# Celerybeat scheduler file:
-celerybeat-schedule
+/venv
+.sass-cache/
+.env
+[Bb]in
+[Oo]bj
+sql
+TestResults
+*.Cache
+~$*
+/static
