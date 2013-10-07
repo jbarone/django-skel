@@ -93,7 +93,6 @@ def compress():
 def initialize():
     """Initialize local project after startproject"""
     local('rm -rf docs README.md')
-    local('pip install -r reqs/dev.txt')
     local('echo /{{ project_name }}/static > .gitignore')
     local('git init')
     local('git add .')
