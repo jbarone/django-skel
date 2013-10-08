@@ -119,7 +119,7 @@ def update():
     collectstatic()
     compress()
 
-    cont('{run} newrelic-admin validate-config - stdout'.format(**env)
+    cont('{run} newrelic-admin validate-config - stdout'.format(**env),
          "Couldn't initialize New Relic, continue anyway?")
 
 @task
