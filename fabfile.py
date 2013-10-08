@@ -71,6 +71,14 @@ def migrate(app=None):
         local('{run} migrate {app} --noinput'.format(app=app, **env))
     else:
         local('{run} migrate --noinput'.format(**env))
+
+@task
+def south_init(app):
+    local('python manage.py schemamigration {app} --initial'.format(app=app))
+
+@task
+def south_update(app):
+    local('python manage.py schemamigration {app} --auto'.format(app=app))
 # END DATABASE MANAGEMENT
 
 
@@ -131,6 +139,8 @@ def bootstrap(app=None):
         - Install all ``HEROKU_ADDONS``.
         - Sync the database.
         - Apply all database migrations.
+        - Collect static files.
+        - Compress css and js files.
         - Initialize New Relic's monitoring add-on.
     """
     if not app:
