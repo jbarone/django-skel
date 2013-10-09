@@ -101,7 +101,7 @@ def compress():
 def initialize():
     """Initialize local project after startproject"""
     local('rm -rf docs README.md')
-    local('echo /{{ project_name }}/static > .gitignore')
+    local('echo /{{ project_name }}/static >> .gitignore')
     local('git init')
     local('git add .')
     local("git commit -m 'First commit'")
