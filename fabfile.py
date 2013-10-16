@@ -155,7 +155,7 @@ def bootstrap(app=None):
              .format(addon=addon))
 
     for config in HEROKU_CONFIGS:
-        cont('heroku config:add config'.format(config=config),
+        cont('heroku config:add {config}'.format(config=config),
              "Couldn't add config to your Heroku app, continue anyway?"
              .format(config=config))
 
